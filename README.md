@@ -1,4 +1,4 @@
-# P2P Komunikátor
+# Data Transfer Protocol Ado (DTPA)
 
 Tento projekt implementuje P2P (peer-to-peer) komunikáciu pomocou protokolu UDP. Je navrhnutý na prenos dát medzi rôznymi uzlami v sieti.
 
