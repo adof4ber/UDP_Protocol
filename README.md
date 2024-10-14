@@ -1,4 +1,4 @@
-# Data Transfer Protocol Ado (DTPA)
+# P2P Komunikátor
 
 Tento projekt implementuje P2P (peer-to-peer) komunikáciu pomocou protokolu UDP. Je navrhnutý na prenos dát medzi rôznymi uzlami v sieti.
 
@@ -14,11 +14,13 @@ Tento projekt implementuje P2P (peer-to-peer) komunikáciu pomocou protokolu UDP
 
 1. Uistite sa, že máte nainštalovaný Python 3.
 2. Skopírujte si projekt do svojho lokálneho adresára.
-3. Spustite `main.py`, zadajte cieľovú IP adresu, zdrojový a cieľový port na ktorom chcete počúvať.
+3. Spustite `main.py`, zadajte port, na ktorom chcete, aby vaša aplikácia počúvala.
+4. Pripojte sa k iným uzlom v sieti a začnite komunikovať.
 
-## Požiadavky/odporúčania/veci
+## Požiadavky
 
-1. Obidva zariadenia musia byť na rovnakej sieti
-2. V main repozitári je aj lua script ktorý rozpoznáva DTPA (Data Transfer Protocol Ado) protokol, stačí to spustiť na portoch 1069 alebo 1070
+Pre tento projekt sú potrebné nasledujúce Python knižnice:
+
+- žiadne špeciálne závislosti (len štandardná knižnica Pythonu)
 
 
