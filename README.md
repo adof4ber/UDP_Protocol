@@ -1,6 +1,6 @@
 # P2P Komunikátor
 
-Tento projekt implementuje P2P (peer-to-peer) komunikáciu pomocou protokolu UDP. Je navrhnutý na prenos dát medzi rôznymi uzlami v sieti.
+Tento projekt implementuje P2P komunikáciu pomocou protokolu UDP. Je navrhnutý na prenos dát medzi rôznymi zariadeniami v sieti.
 
 ## Obsah projektu
 
