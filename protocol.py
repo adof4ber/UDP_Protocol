@@ -17,6 +17,7 @@ class DataTransferProtocolAdo:
     MSG_TYPE_CLOSE_INIT = 8  
     MSG_TYPE_CLOSE_ACK = 9   
     MSG_TYPE_CLOSE_FINAL = 10
+    MSG_TYPE_END = 11  
 
     @staticmethod
     def build_crc(payload):
@@ -68,11 +69,22 @@ class DataTransferProtocolAdo:
 
     @staticmethod
     def build_file_frame(fragment_id, total_fragments, file_data):
-        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_FILE, fragment_id, total_fragments, file_data)
+        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_FILE_DATA, fragment_id, total_fragments, file_data)
 
     @staticmethod
     def parse_file_frame(frame):
         msg_type, fragment_id, total_fragments, data = DataTransferProtocolAdo.parse_frame(frame)
-        if msg_type != DataTransferProtocolAdo.MSG_TYPE_FILE:
+        if msg_type != DataTransferProtocolAdo.MSG_TYPE_FILE_DATA:
             raise ValueError("Incorrect message type for file transfer.")
-        return fragment_id, total_fragments, data.encode('utf-8')  # Data is returned as bytes for files
+        return fragment_id, total_fragments, data.encode('utf-8')  
+
+    @staticmethod
+    def build_end():
+        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_END, 0, 1, "END")
+
+    @staticmethod
+    def parse_end(frame):
+        msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(frame)
+        if msg_type != DataTransferProtocolAdo.MSG_TYPE_END:
+            raise ValueError("Incorrect message type for end signal.")
+        return data == "END"
