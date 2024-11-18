@@ -34,37 +34,29 @@ class FileTransfer:
     def _send_file_data(self, data, fragment_id, total_fragments):
         if isinstance(data, str):
             data = data.encode("utf-8")
-        
-        # Building the frame for sending the data fragment
+ 
         frame = DataTransferProtocolAdo.build_frame(
             DataTransferProtocolAdo.MSG_TYPE_FILE_DATA,
             fragment_id,
             total_fragments,
             data
         )
-        # Send the fragment over the connection
         self.connection.send(frame, (self.target_ip, self.target_port))
 
     def receive_file_data(self, data, save_directory):
-        # Ensure the data is in bytes when receiving
         if isinstance(data, str):
             data = data.encode("utf-8")
-        
-        # Assuming the received data includes fragment_id, total_fragments, and the actual chunk of data
+
         fragment_id, total_fragments, chunk = data[0], data[1], data[2:]
 
-        # If file_name is None, we assume this is the first fragment, so we initialize it
         if self.file_name is None:
-            self.file_name = "received_file"  # Default name if no name is found
+            self.file_name = "received_file"  
 
-        # Save the file as it is received (in chunks)
-        file_path = os.path.join(save_directory, self.file_name)  # Automatically use file name
+        file_path = os.path.join(save_directory, self.file_name)  
 
-        # Open the file in append mode to write each fragment
         with open(file_path, "ab") as file:
             file.write(chunk)
             print(f"Received fragment {fragment_id + 1}/{total_fragments}")
 
-        # Check if all fragments are received
         if fragment_id == total_fragments - 1:
             print(f"File transfer complete. File saved as {file_path}")

@@ -5,10 +5,10 @@ def handshake(connection, target_ip, target_port, my_protocol_number, their_prot
     sequence_number = 1  
 
     if my_protocol_number < their_protocol_number:
+        print(f"[Handshake] Sending SYN message, waiting for SYN-ACK...")
         while True:
             syn_frame = DataTransferProtocolAdo.build_syn(sequence_number)
             connection.send(syn_frame, (target_ip, target_port))
-            print(f"[Handshake] Sent SYN message {sequence_number}, waiting for SYN-ACK...")
 
             try:
                 response, _ = connection.receive()
@@ -21,7 +21,7 @@ def handshake(connection, target_ip, target_port, my_protocol_number, their_prot
                     print("[Handshake] Received SYN-ACK, sending ACK...")
                     ack_frame = DataTransferProtocolAdo.build_ack(sequence_number)
                     connection.send(ack_frame, (target_ip, target_port))
-                    print(f"[Handshake] Sent ACK message {sequence_number}, connection established!")
+                    print(f"[Handshake] Sent ACK message, connection established!")
                     return True
             except Exception as e:
                 print(f"[Handshake] No response received, retrying...: {e}")

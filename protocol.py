@@ -10,12 +10,12 @@ class DataTransferProtocolAdo:
     MSG_TYPE_SYN_ACK = 1
     MSG_TYPE_ACK = 2
     MSG_TYPE_DATA = 3
-    MSG_TYPE_ACK_NACK = 4
+    MSG_TYPE_NACK = 4
     MSG_TYPE_KEEP_ALIVE = 5
-    MSG_TYPE_FILE_METADATA = 6  # Nový typ správy pre metadáta
-    MSG_TYPE_FILE_DATA = 7      # Nový typ správy pre dáta súboru
-    MSG_TYPE_CLOSE_INIT = 8  # Správa na inicializáciu ukončenia (Close Request)
-    MSG_TYPE_CLOSE_ACK = 9   # Potvrdenie prijatia Close Request
+    MSG_TYPE_FILE_METADATA = 6  
+    MSG_TYPE_FILE_DATA = 7      
+    MSG_TYPE_CLOSE_INIT = 8  
+    MSG_TYPE_CLOSE_ACK = 9   
     MSG_TYPE_CLOSE_FINAL = 10
 
     @staticmethod
@@ -56,6 +56,11 @@ class DataTransferProtocolAdo:
     def build_ack(sequence_number):
         data = f"ACK {sequence_number}"
         return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_ACK, sequence_number, 1, data)
+    
+    @staticmethod
+    def build_nack(sequence_number):
+        data = f"NACK {sequence_number}"
+        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_NACK, sequence_number, 1, data)
 
     @staticmethod
     def build_keep_alive():
