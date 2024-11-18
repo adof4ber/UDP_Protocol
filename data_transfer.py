@@ -110,3 +110,5 @@ class DataTransfer:
 
             except Exception as e:
                 print(f"Error parsing frame: {e}")
+
+#TODO - odstranit ignorovanie ACK sprav kvoli ARQ
