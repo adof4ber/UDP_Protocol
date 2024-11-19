@@ -7,7 +7,7 @@ from data_transfer import DataTransfer
 from file_transfer import FileTransfer
 from keep_alive import keep_alive
 from handshake import handshake
-from handshake_close import close_handshake, handle_close_sequence
+from handshake_close import close_handshake
 
 def print_banner():
     banner = """
@@ -38,22 +38,6 @@ def main():
     def handshake_thread():
         handshake_successful[0] = handshake(udp_connection, target_ip, target_port, protocol_number, target_port)
 
-    threading.Thread(target=handshake_thread, daemon=True).start()
-
-    while not handshake_successful[0]:
-        time.sleep(1)
-
-    print("Handshake completed. Ready for communication.")
-    
-    data_transfer = DataTransfer(udp_connection, target_ip, target_port, fragment_size)
-    file_transfer = FileTransfer(udp_connection, target_ip, target_port, fragment_size, save_directory)
-
-    threading.Thread(
-        target=handle_close_sequence,
-        args=(udp_connection, target_ip, target_port, connection_active),
-        daemon=True
-    ).start()
-
     def listen_for_messages():
         while connection_active[0]:
             message = data_transfer.receive_message()
@@ -66,7 +50,6 @@ def main():
             if file_data:
                 print("Received file data. Saving file...")
 
-
     def data_transfer_menu():
         while connection_active[0]:
             print("\nMenu:")
@@ -76,17 +59,16 @@ def main():
             choice = input("Select an option: ")
 
             if choice == "1":
+                threading.Thread(target=listen_for_messages, daemon=True).start()
                 while connection_active[0]:
-                    threading.Thread(target=listen_for_messages, daemon=True).start()  
                     message = input("Enter your message (or 'q' to return to menu): ")
                     if message.lower() == 'q':
                         print("Returning to menu...")
                         break
                     data_transfer.send_message(message)
             elif choice == "2":
-                threading.Thread(target=listen_for_file, daemon=True).start()  
-
-                while connection_active[0]:                   
+                threading.Thread(target=listen_for_file, daemon=True).start()
+                while connection_active[0]:
                     file_path = input("Enter file path to send (or 'q' to return to menu): ")
                     if file_path.lower() == 'q':
                         print("Returning to menu")
@@ -94,24 +76,30 @@ def main():
                     threading.Thread(target=file_transfer.send_file, args=(file_path,), daemon=True).start()
             elif choice.lower() == 'q':
                 print("Initiating close handshake")
-                close_handshake(udp_connection, target_ip, target_port)
-                print("Sending CLOSE_INIT")
+                threading.Thread(target=close_handshake, args=(udp_connection, target_ip, target_port, connection_active), daemon=True).start()
                 while connection_active[0]: 
                     time.sleep(0.1)
                 break
             else:
                 print("Invalid option. Please try again.")
 
-    data_transfer_thread = threading.Thread(target=data_transfer_menu, daemon=True)
-    data_transfer_thread.start()
+    # Thread for handling handshake
+    def handshake_thread():
+        handshake_successful[0] = handshake(udp_connection, target_ip, target_port, protocol_number, target_port)
 
-    try:
-        while connection_active[0]:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Exiting program.")
+    threading.Thread(target=handshake_thread, daemon=True).start()
 
-    data_transfer_thread.join()
+    while not handshake_successful[0]:
+        time.sleep(1)
+
+    print("Handshake completed. Ready for communication.")
+    
+    data_transfer = DataTransfer(udp_connection, target_ip, target_port, fragment_size)
+    file_transfer = FileTransfer(udp_connection, target_ip, target_port, fragment_size, save_directory)
+
+    # Main menu loop
+    while connection_active[0]:
+        data_transfer_menu()
 
     print("Goodbye.")
 

@@ -1,12 +1,15 @@
 import time
 from protocol import DataTransferProtocolAdo
 
-def close_handshake(udp_connection, target_ip, target_port):
+def close_handshake(udp_connection, target_ip, target_port, connection_active):
     close_init_frame = DataTransferProtocolAdo.build_frame(
         DataTransferProtocolAdo.MSG_TYPE_CLOSE_INIT, 0, 1, "CLOSE_INIT"
     )
     udp_connection.send(close_init_frame, (target_ip, target_port))
     print("Sent CLOSE_INIT")
+
+    # Tu spustíme sekvenciu na uzatvorenie spojenia
+    handle_close_sequence(udp_connection, target_ip, target_port, connection_active)
 
 def send_close_ack(udp_connection, sender_address):
     close_ack_frame = DataTransferProtocolAdo.build_frame(

@@ -122,4 +122,3 @@ class DataTransfer:
             self.transfer_active = True  
             self.send_message(message)
 
-#TODO viac sprav aby mohol user poslat

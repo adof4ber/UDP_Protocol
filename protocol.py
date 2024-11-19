@@ -1,11 +1,12 @@
 import struct
-import zlib  
+import zlib
 
 class DataTransferProtocolAdo:
     PROTOCOL_NAME = "DTPA"
-    HEADER_FORMAT = "!BHHH"  
+    HEADER_FORMAT = "!BHHH"  # Message type, Fragment ID, Total Fragments, CRC
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
+    # Message types
     MSG_TYPE_SYN = 0
     MSG_TYPE_SYN_ACK = 1
     MSG_TYPE_ACK = 2
@@ -38,9 +39,15 @@ class DataTransferProtocolAdo:
 
         data = frame[DataTransferProtocolAdo.HEADER_SIZE:]
 
+        # CRC check
         if DataTransferProtocolAdo.build_crc(data) != crc:
-            raise ValueError("CRC check failed: Data is corrupted.")
-        
+            raise ValueError(f"CRC check failed: Data is corrupted (MsgType: {msg_type}, Fragment: {fragment_id}).")
+
+        # Ak sú dáta typu "file_data", vráť ich ako binárne dáta
+        if msg_type in [DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA, DataTransferProtocolAdo.MSG_TYPE_FILE_DATA]:
+            return msg_type, fragment_id, total_fragments, data  # Nevykonávame dekódovanie
+
+        # Inak dekódujeme ako UTF-8
         return msg_type, fragment_id, total_fragments, data.decode("utf-8")
 
     @staticmethod
@@ -68,15 +75,31 @@ class DataTransferProtocolAdo:
         return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE, 0, 1, "KEEP_ALIVE")
 
     @staticmethod
-    def build_file_frame(fragment_id, total_fragments, file_data):
+    def build_file_metadata(file_name, file_size):
+        data = f"Metadata: {file_name}, {file_size}"
+        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA, 0, 1, data)
+
+    @staticmethod
+    def build_file_data(fragment_id, total_fragments, file_data):
         return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_FILE_DATA, fragment_id, total_fragments, file_data)
 
     @staticmethod
-    def parse_file_frame(frame):
+    def parse_file_metadata(frame):
+        msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(frame)
+        if msg_type != DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA:
+            raise ValueError(f"Incorrect message type for file metadata. Expected {DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA}, got {msg_type}.")
+        # Extract file name and file size
+        metadata = data.decode("utf-8").split(", ")
+        file_name = metadata[0].split(": ")[1]
+        file_size = int(metadata[1])
+        return file_name, file_size
+
+    @staticmethod
+    def parse_file_data(frame):
         msg_type, fragment_id, total_fragments, data = DataTransferProtocolAdo.parse_frame(frame)
         if msg_type != DataTransferProtocolAdo.MSG_TYPE_FILE_DATA:
-            raise ValueError("Incorrect message type for file transfer.")
-        return fragment_id, total_fragments, data.encode('utf-8')  
+            raise ValueError(f"Incorrect message type for file transfer. Expected {DataTransferProtocolAdo.MSG_TYPE_FILE_DATA}, got {msg_type}.")
+        return fragment_id, total_fragments, data  # Už neprevádzame dáta na text
 
     @staticmethod
     def build_end():
@@ -86,5 +109,16 @@ class DataTransferProtocolAdo:
     def parse_end(frame):
         msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(frame)
         if msg_type != DataTransferProtocolAdo.MSG_TYPE_END:
-            raise ValueError("Incorrect message type for end signal.")
+            raise ValueError(f"Incorrect message type for end signal. Expected {DataTransferProtocolAdo.MSG_TYPE_END}, got {msg_type}.")
         return data == "END"
+
+    @staticmethod
+    def build_data(data):
+        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_DATA, 0, 1, data)
+
+    @staticmethod
+    def parse_data(frame):
+        msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(frame)
+        if msg_type != DataTransferProtocolAdo.MSG_TYPE_DATA:
+            raise ValueError(f"Incorrect message type for data. Expected {DataTransferProtocolAdo.MSG_TYPE_DATA}, got {msg_type}.")
+        return data
