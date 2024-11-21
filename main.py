@@ -65,7 +65,7 @@ def main():
                     if message.lower() == 'q':
                         print("Returning to menu...")
                         break
-                    data_transfer.send_message(message)
+                    threading.Thread(target=data_transfer.send_message,args=(message,), daemon=True).start()
             elif choice == "2":
                 threading.Thread(target=listen_for_file, daemon=True).start()
                 while connection_active[0]:
