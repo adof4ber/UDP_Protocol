@@ -12,7 +12,7 @@ class DataTransferProtocolAdo:
     MSG_TYPE_DATA = 3
     MSG_TYPE_NACK = 4
     MSG_TYPE_KEEP_ALIVE = 5
-    MSG_TYPE_KEEP_ALIVE_ACK = 6  # New message type for Keep-Alive ACK
+    MSG_TYPE_KEEP_ALIVE_ACK = 6  
     MSG_TYPE_FILE_METADATA = 7  
     MSG_TYPE_FILE_DATA = 8      
     MSG_TYPE_CLOSE_INIT = 9  
@@ -21,14 +21,25 @@ class DataTransferProtocolAdo:
     MSG_TYPE_END = 12  
 
     @staticmethod
-    def build_crc(payload):
-        return zlib.crc32(payload) & 0xFFEF
+    def build_crc(payload, simulate_error=False, is_data_message=False):
+        crc = zlib.crc32(payload) & 0xFFEF
+        
+        if simulate_error and is_data_message:
+            crc = crc ^ 0x1234  
+        
+        return crc
 
     @staticmethod
-    def build_frame(msg_type, fragment_id, total_fragments, data):
+    def build_frame(msg_type, fragment_id, total_fragments, data, simulate_error=False):
+        is_data_message = (msg_type == DataTransferProtocolAdo.MSG_TYPE_DATA)
+        
         if isinstance(data, str):
             data = data.encode("utf-8")
-        crc = DataTransferProtocolAdo.build_crc(data)
+
+        if simulate_error and is_data_message:
+            data = data[:len(data)//2] + b'\x00' * (len(data) // 2)  
+
+        crc = DataTransferProtocolAdo.build_crc(data, simulate_error, is_data_message)
         header = struct.pack(DataTransferProtocolAdo.HEADER_FORMAT, msg_type, fragment_id, total_fragments, crc)
         return header + data
 

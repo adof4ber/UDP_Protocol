@@ -106,6 +106,12 @@ class DataTransfer:
 
             except Exception as e:
                 print(f"Error parsing frame: {e}")
-                nack_frame = DataTransferProtocolAdo.build_nack(fragment_id)
-                self.connection.send(nack_frame, sender_address)
-                print(f"Sent NACK for fragment {fragment_id + 1}/{total_fragments}")
+                # Predtým, než pošlete NACK, zabezpečte, že fragment_id existuje
+                if 'fragment_id' in locals():  # Overíme, či fragment_id existuje
+                    nack_frame = DataTransferProtocolAdo.build_nack(fragment_id)
+                    self.connection.send(nack_frame, sender_address)
+                    print(f"Sent NACK for fragment {fragment_id + 1}/{total_fragments}")
+                else:
+                    print("Cannot send NACK: fragment_id is not available.")
+
+
