@@ -4,7 +4,7 @@ from protocol import DataTransferProtocolAdo
 from threading import Lock
 
 class FileTransfer:
-    def __init__(self, connection, target_ip, target_port, fragment_size, save_directory, window_size=100, timeout=2):
+    def __init__(self, connection, target_ip, target_port, fragment_size, save_directory, window_size=50, timeout=1):
         self.connection = connection
         self.target_ip = target_ip
         self.target_port = target_port
@@ -39,6 +39,8 @@ class FileTransfer:
 
         self.file_name = os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
+        self.sequence_number = 0
+        self.sent_frames = {} 
         print(f"Sending file '{self.file_name}' of size {file_size} bytes")
 
         try:
@@ -54,13 +56,11 @@ class FileTransfer:
                             self._send_file_data(chunk, fragment_id, total_fragments)
                             fragment_id += 1
 
-                    # Ensure that the last batch (less than window_size fragments) is sent
                     if fragment_id >= total_fragments:
                         break
 
                     self._wait_for_ack(total_fragments)
 
-                # Send end signal
                 self._send_end_signal()
 
             print("File transfer completed.")
@@ -96,6 +96,8 @@ class FileTransfer:
                     frame, addr = self.connection.receive()
                     if frame:
                         msg_type, fragment_id, total_fragments, data = DataTransferProtocolAdo.parse_frame(frame)
+                        if msg_type == DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE:
+                            continue  # Ignore Keep-Alive messages
                         if msg_type == DataTransferProtocolAdo.MSG_TYPE_ACK:
                             if fragment_id in self.sent_frames:
                                 del self.sent_frames[fragment_id]
@@ -109,7 +111,6 @@ class FileTransfer:
                 except Exception as e:
                     print(f"Error while waiting for ACK: {e}")
 
-        # Handle sending remaining fragments or last fragments
         for fragment_id in list(self.sent_frames.keys()):
             if time.time() - start_time > self.timeout:
                 print(f"Timeout for fragment {fragment_id + 1}, retransmitting...")
@@ -136,28 +137,29 @@ class FileTransfer:
             print(f"Error saving file: {e}")
 
     def receive_file(self):
-        """
-        This method will listen for incoming file fragments, assemble them into a complete file,
-        and save the file once all fragments are received.
-        """
-        file_data = b''  
+        file_data = b''
+        self.file_name = None
+        fragments = {}
         fragment_id = 0
         total_fragments = None
-        fragments = {}  # Dictionary to store fragments by ID
 
         while True:
             frame, addr = self.connection.receive()
 
             if frame:
                 msg_type, fragment_id, total_fragments, data = DataTransferProtocolAdo.parse_frame(frame)
-                print(f"Received message type: {msg_type} from {addr}")
+                if msg_type == DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE:
+                    continue  
+
+                if msg_type == DataTransferProtocolAdo.MSG_TYPE_DATA:
+                    continue
 
                 if msg_type == DataTransferProtocolAdo.MSG_TYPE_FILE_DATA:
-                    print(f"Received file fragment {fragment_id + 1}/{total_fragments}")
-                    fragments[fragment_id] = data  # Store fragment by its ID
+                    if fragment_id not in fragments:
+                        print(f"Received file fragment {fragment_id + 1}/{total_fragments}")
+                        fragments[fragment_id] = data
 
-                    if len(fragments) == total_fragments:  # Check if all fragments are received
-                        # Sort fragments by their ID and join the data in order
+                    if len(fragments) == total_fragments:
                         sorted_fragments = [fragments[i] for i in sorted(fragments.keys())]
                         file_data = b''.join(sorted_fragments)
                         self.save_received_file(file_data)

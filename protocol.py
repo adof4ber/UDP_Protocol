@@ -3,26 +3,26 @@ import zlib
 
 class DataTransferProtocolAdo:
     PROTOCOL_NAME = "DTPA"
-    HEADER_FORMAT = "!BHHH"  # Message type, Fragment ID, Total Fragments, CRC
+    HEADER_FORMAT = "!BHHH"  
     HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
 
-    # Message types
     MSG_TYPE_SYN = 0
     MSG_TYPE_SYN_ACK = 1
     MSG_TYPE_ACK = 2
     MSG_TYPE_DATA = 3
     MSG_TYPE_NACK = 4
     MSG_TYPE_KEEP_ALIVE = 5
-    MSG_TYPE_FILE_METADATA = 6  
-    MSG_TYPE_FILE_DATA = 7      
-    MSG_TYPE_CLOSE_INIT = 8  
-    MSG_TYPE_CLOSE_ACK = 9   
-    MSG_TYPE_CLOSE_FINAL = 10
-    MSG_TYPE_END = 11  
+    MSG_TYPE_KEEP_ALIVE_ACK = 6  # New message type for Keep-Alive ACK
+    MSG_TYPE_FILE_METADATA = 7  
+    MSG_TYPE_FILE_DATA = 8      
+    MSG_TYPE_CLOSE_INIT = 9  
+    MSG_TYPE_CLOSE_ACK = 10   
+    MSG_TYPE_CLOSE_FINAL = 11
+    MSG_TYPE_END = 12  
 
     @staticmethod
     def build_crc(payload):
-        return zlib.crc32(payload) & 0xFFFF
+        return zlib.crc32(payload) & 0xFFEF
 
     @staticmethod
     def build_frame(msg_type, fragment_id, total_fragments, data):
@@ -39,15 +39,12 @@ class DataTransferProtocolAdo:
 
         data = frame[DataTransferProtocolAdo.HEADER_SIZE:]
 
-        # CRC check
         if DataTransferProtocolAdo.build_crc(data) != crc:
             raise ValueError(f"CRC check failed: Data is corrupted (MsgType: {msg_type}, Fragment: {fragment_id}).")
 
-        # Ak sú dáta typu "file_data", vráť ich ako binárne dáta
         if msg_type in [DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA, DataTransferProtocolAdo.MSG_TYPE_FILE_DATA]:
-            return msg_type, fragment_id, total_fragments, data  # Nevykonávame dekódovanie
+            return msg_type, fragment_id, total_fragments, data  
 
-        # Inak dekódujeme ako UTF-8
         return msg_type, fragment_id, total_fragments, data.decode("utf-8")
 
     @staticmethod
@@ -75,6 +72,10 @@ class DataTransferProtocolAdo:
         return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE, 0, 1, "KEEP_ALIVE")
 
     @staticmethod
+    def build_keep_alive_ack():
+        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE_ACK, 0, 1, "KEEP_ALIVE_ACK")  # New method for ACK
+
+    @staticmethod
     def build_file_metadata(file_name, file_size):
         data = f"Metadata: {file_name}, {file_size}"
         return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA, 0, 1, data)
@@ -88,7 +89,6 @@ class DataTransferProtocolAdo:
         msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(frame)
         if msg_type != DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA:
             raise ValueError(f"Incorrect message type for file metadata. Expected {DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA}, got {msg_type}.")
-        # Extract file name and file size
         metadata = data.decode("utf-8").split(", ")
         file_name = metadata[0].split(": ")[1]
         file_size = int(metadata[1])
@@ -99,7 +99,7 @@ class DataTransferProtocolAdo:
         msg_type, fragment_id, total_fragments, data = DataTransferProtocolAdo.parse_frame(frame)
         if msg_type != DataTransferProtocolAdo.MSG_TYPE_FILE_DATA:
             raise ValueError(f"Incorrect message type for file transfer. Expected {DataTransferProtocolAdo.MSG_TYPE_FILE_DATA}, got {msg_type}.")
-        return fragment_id, total_fragments, data  # Už neprevádzame dáta na text
+        return fragment_id, total_fragments, data 
 
     @staticmethod
     def build_end():

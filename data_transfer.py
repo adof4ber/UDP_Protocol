@@ -2,12 +2,13 @@ import time
 from protocol import DataTransferProtocolAdo
 
 class DataTransfer:
-    def __init__(self, connection, target_ip, target_port, fragment_size, timeout=2):
+    def __init__(self, connection, target_ip, target_port, fragment_size, timeout=0.5, ack_timeout=0.5):
         self.connection = connection
         self.target_ip = target_ip
         self.target_port = target_port
         self.fragment_size = fragment_size
-        self.timeout = timeout
+        self.timeout = timeout  
+        self.ack_timeout = ack_timeout  
         self.transfer_active = True
         self.connection_active = [True]
 
@@ -25,7 +26,8 @@ class DataTransfer:
 
         for seq, fragment in fragments:
             ack_received = False
-            while not ack_received:
+            retries = 0
+            while not ack_received and retries < 3:  
                 frame = DataTransferProtocolAdo.build_frame(
                     DataTransferProtocolAdo.MSG_TYPE_DATA, seq, total_fragments, fragment
                 )
@@ -44,11 +46,17 @@ class DataTransfer:
                             ack_received = True
                             print(f"Received ACK for fragment {fragment_id + 1}/{total_fragments}")
                             break
+                        elif msg_type == DataTransferProtocolAdo.MSG_TYPE_NACK and fragment_id == seq:
+                            print(f"Received NACK for fragment {seq + 1}. Resending...")
+                            break  
                     except Exception as e:
                         print(f"Error parsing frame: {e}")
 
                 if not ack_received:
-                    print(f"Timeout reached for fragment {seq + 1}. Resending...")
+                    retries += 1
+                    print(f"Timeout reached for fragment {seq + 1}. Resending... ({retries}/5)")
+
+                time.sleep(self.ack_timeout)
 
         print("All fragments sent and acknowledged. Transfer complete.")
         end_frame = DataTransferProtocolAdo.build_end()
@@ -58,6 +66,7 @@ class DataTransfer:
     def receive_message(self):
         received_fragments = {}
         total_fragments = None
+        last_ack_id = -1  
 
         while self.transfer_active and self.connection_active[0]:
             frame, sender_address = self.connection.receive()
@@ -66,17 +75,25 @@ class DataTransfer:
 
             try:
                 msg_type, fragment_id, total_fragments, data = DataTransferProtocolAdo.parse_frame(frame)
+
                 if msg_type == DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE:
+                    ack_frame = DataTransferProtocolAdo.build_keep_alive_ack()
+                    self.connection.send(ack_frame, sender_address)
                     continue
 
                 if msg_type == DataTransferProtocolAdo.MSG_TYPE_DATA:
+                    if total_fragments is None:
+                        total_fragments = total_fragments  
+
                     if fragment_id not in received_fragments:
                         received_fragments[fragment_id] = data
                         print(f"Received fragment {fragment_id + 1}/{total_fragments}")
 
-                    ack_frame = DataTransferProtocolAdo.build_ack(fragment_id)
-                    self.connection.send(ack_frame, sender_address)
-                    print(f"Sent ACK for fragment {fragment_id + 1}/{total_fragments}")
+                    if last_ack_id != fragment_id:
+                        ack_frame = DataTransferProtocolAdo.build_ack(fragment_id)
+                        self.connection.send(ack_frame, sender_address)
+                        print(f"Sent ACK for fragment {fragment_id + 1}/{total_fragments}")
+                        last_ack_id = fragment_id  
 
                     if len(received_fragments) == total_fragments:
                         message = ''.join(received_fragments[i] for i in range(total_fragments))
@@ -89,3 +106,6 @@ class DataTransfer:
 
             except Exception as e:
                 print(f"Error parsing frame: {e}")
+                nack_frame = DataTransferProtocolAdo.build_nack(fragment_id)
+                self.connection.send(nack_frame, sender_address)
+                print(f"Sent NACK for fragment {fragment_id + 1}/{total_fragments}")
