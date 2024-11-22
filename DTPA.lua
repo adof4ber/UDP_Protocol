@@ -20,12 +20,13 @@ local msg_types = {
     [3] = "DATA",
     [4] = "NACK",
     [5] = "KEEP-ALIVE",
-    [6] = "FILE METADATA",
-    [7] = "FILE DATA",
-    [8] = "CLOSE INIT",
-    [9] = "CLOSE ACK",
-    [10] = "CLOSE FINAL",
-    [11] = "END"
+    [6] = "KEEP-ALIVE-ACK",
+    [7] = "FILE METADATA",
+    [8] = "FILE DATA",
+    [9] = "CLOSE INIT",
+    [10] = "CLOSE ACK",
+    [11] = "CLOSE FINAL",
+    [12] = "END"
 }
 
 -- Dissector function
@@ -56,16 +57,11 @@ function dtpa_proto.dissector(buffer, pinfo, tree)
         subtree:add(buffer(7), "Payload: " .. data)
     end
 
-    -- Add color rules (indirect method)
-    if msg_type == 0 then
-        pinfo.cols.info:set("SYN")
-        -- You can set a color rule in Wireshark for dtpa.msg_type == 0 (SYN)
-    elseif msg_type == 1 then
-        pinfo.cols.info:set("SYN-ACK")
-        -- You can set a color rule in Wireshark for dtpa.msg_type == 1 (SYN-ACK)
-    elseif msg_type == 2 then
-        pinfo.cols.info:set("ACK")
-        -- You can set a color rule in Wireshark for dtpa.msg_type == 2 (ACK)
+    -- Set Info column based on message type
+    if msg_types[msg_type] then
+        pinfo.cols.info:set(msg_types[msg_type])
+    else
+        pinfo.cols.info:set("Unknown Message Type")
     end
 end
 
