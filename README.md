@@ -9,9 +9,9 @@ Tento projekt implementuje P2P komunikáciu pomocou protokolu UDP. Je navrhnutý
 - **handshake_close.py**: 3-Way handshake na ukončenie spojenia 
 - **data_transfer.py**: Obsahuje logiku na prenos dát, vrátane fragmentácie a výpočtu kontrolného súčtu.
 - **file_transfer.py**: Funkcia zodpovedná za prenos súborov
-- **error_handling.py**: Zodpovedá za spracovanie chýb a opätovné odosielanie fragmentov dát.
 - **keep_alive.py**: Udržuje aktívne spojenie medzi uzlami prostredníctvom pravidelných "keep-alive" správ.
 - **main.py**: Hlavný spúšťací súbor aplikácie, ktorý inicializuje všetky komponenty.
+- **DTPA.lua**: Dissector na rozpoznávanie protokolu vo WireShark
 
 
 ## Použitie
