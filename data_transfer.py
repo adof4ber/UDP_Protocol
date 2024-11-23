@@ -54,11 +54,10 @@ class DataTransfer:
 
                 if not ack_received:
                     retries += 1
-                    print(f"Timeout reached for fragment {seq + 1}. Resending... ({retries}/5)")
+                    print(f"Timeout reached for fragment {seq + 1}. Resending... ({retries}/3)")
 
                 time.sleep(self.ack_timeout)
 
-        print("All fragments sent and acknowledged. Transfer complete.")
         end_frame = DataTransferProtocolAdo.build_end()
         self.connection.send(end_frame, (self.target_ip, self.target_port))
         print("Sent END frame.")
@@ -106,8 +105,7 @@ class DataTransfer:
 
             except Exception as e:
                 print(f"Error parsing frame: {e}")
-                # Predtým, než pošlete NACK, zabezpečte, že fragment_id existuje
-                if 'fragment_id' in locals():  # Overíme, či fragment_id existuje
+                if 'fragment_id' in locals():  
                     nack_frame = DataTransferProtocolAdo.build_nack(fragment_id)
                     self.connection.send(nack_frame, sender_address)
                     print(f"Sent NACK for fragment {fragment_id + 1}/{total_fragments}")

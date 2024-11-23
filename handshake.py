@@ -4,56 +4,63 @@ from protocol import DataTransferProtocolAdo
 def handshake(connection, target_ip, target_port, my_protocol_number, their_protocol_number):
     sequence_number = 1  
 
+    print("[Connection] Attempting to establish connection...")
+    
+    keep_alive_frame = DataTransferProtocolAdo.build_keep_alive()
+    connection.send(keep_alive_frame, (target_ip, target_port))
+    
+    try:
+        start_time = time.time()
+        while time.time() - start_time < 1:  # Čakanie na KEEP ALIVE ACK max 3 sekundy
+            response = connection.receive()  # Bez timeout parametra
+            if response:
+                msg_type, _, _, _ = DataTransferProtocolAdo.parse_frame(response[0]) if response[0] else (None, None, None, None)
+                if msg_type == DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE_ACK:
+                    print("[Connection] Connection successfully re-established with KEEP ALIVE.")
+                    return True
+    except Exception as e:
+        print(f"[Connection] No KEEP ALIVE response: {e}")
+
+    print("[Connection] KEEP ALIVE failed, initiating handshake...")
+
     if my_protocol_number < their_protocol_number:
-        print(f"[Handshake] Sending SYN message, waiting for SYN-ACK...")
         while True:
             syn_frame = DataTransferProtocolAdo.build_syn(sequence_number)
             connection.send(syn_frame, (target_ip, target_port))
 
             try:
-                response, _ = connection.receive()
-                if response is None:
-                    continue
-                
-                msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(response)
-
-                if msg_type == DataTransferProtocolAdo.MSG_TYPE_SYN_ACK and data == f"SYN-ACK {sequence_number}":
-                    print("[Handshake] Received SYN-ACK, sending ACK...")
-                    ack_frame = DataTransferProtocolAdo.build_ack(sequence_number)
-                    connection.send(ack_frame, (target_ip, target_port))
-                    print(f"[Handshake] Sent ACK message, connection established!")
-                    return True
+                response = connection.receive()
+                if response:
+                    msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(response[0]) if response[0] else (None, None, None, None)
+                    if msg_type == DataTransferProtocolAdo.MSG_TYPE_SYN_ACK and data == f"SYN-ACK {sequence_number}":
+                        ack_frame = DataTransferProtocolAdo.build_ack(sequence_number)
+                        connection.send(ack_frame, (target_ip, target_port))
+                        print(f"[Handshake] Connection established via handshake.")
+                        return True
             except Exception as e:
-                print(f"[Handshake] No response received, retrying...: {e}")
+                print(f"[Handshake] No response, retrying...: {e}")
 
-            time.sleep(3)  
+            time.sleep(3)
 
     else:
         while True:
             try:
-                response, _ = connection.receive()
-                if response is None:
-                    continue
-                
-                msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(response)
+                response = connection.receive()
+                if response:
+                    msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(response[0]) if response[0] else (None, None, None, None)
+                    if msg_type == DataTransferProtocolAdo.MSG_TYPE_SYN and data == f"SYN {sequence_number}":
+                        syn_ack_frame = DataTransferProtocolAdo.build_syn_ack(sequence_number)
+                        connection.send(syn_ack_frame, (target_ip, target_port))
 
-                if msg_type == DataTransferProtocolAdo.MSG_TYPE_SYN and data == f"SYN {sequence_number}":
-                    print("[Handshake] Received SYN, sending SYN-ACK...")
-                    syn_ack_frame = DataTransferProtocolAdo.build_syn_ack(sequence_number)
-                    connection.send(syn_ack_frame, (target_ip, target_port))
-
-                    response, _ = connection.receive()
-                    if response is None:
-                        continue
-                    
-                    msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(response)
-
-                    if msg_type == DataTransferProtocolAdo.MSG_TYPE_ACK and data == f"ACK {sequence_number}":
-                        print("[Handshake] Received ACK, connection established!")
-                        return True
+                        response = connection.receive()
+                        if response:
+                            msg_type, _, _, data = DataTransferProtocolAdo.parse_frame(response[0]) if response[0] else (None, None, None, None)
+                            if msg_type == DataTransferProtocolAdo.MSG_TYPE_ACK and data == f"ACK {sequence_number}":
+                                print("[Handshake] Connection established via handshake.")
+                                return True
             except Exception as e:
-                print(f"[Handshake] No response received, retrying...: {e}")
+                print(f"[Handshake] No response, retrying...: {e}")
 
-            time.sleep(3)  
+            time.sleep(3)
 
-    return False  
+    return False
