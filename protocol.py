@@ -13,13 +13,12 @@ class DataTransferProtocolAdo:
     MSG_TYPE_NACK = 4
     MSG_TYPE_KEEP_ALIVE = 5
     MSG_TYPE_KEEP_ALIVE_ACK = 6  
-    MSG_TYPE_FILE_METADATA = 7  
+    MSG_TYPE_FILE_NAME = 7  
     MSG_TYPE_FILE_DATA = 8      
     MSG_TYPE_CLOSE_INIT = 9  
     MSG_TYPE_CLOSE_ACK = 10   
     MSG_TYPE_CLOSE_FINAL = 11
     MSG_TYPE_END = 12
-    MSG_TYPE_FILE_NAME = 13
 
     @staticmethod
     def build_crc(payload, simulate_error=False, is_data_message=False):
