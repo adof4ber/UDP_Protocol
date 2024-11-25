@@ -18,7 +18,8 @@ class DataTransferProtocolAdo:
     MSG_TYPE_CLOSE_INIT = 9  
     MSG_TYPE_CLOSE_ACK = 10   
     MSG_TYPE_CLOSE_FINAL = 11
-    MSG_TYPE_END = 12  
+    MSG_TYPE_END = 12
+    MSG_TYPE_FILE_NAME = 13
 
     @staticmethod
     def build_crc(payload, simulate_error=False, is_data_message=False):
@@ -84,7 +85,7 @@ class DataTransferProtocolAdo:
 
     @staticmethod
     def build_keep_alive_ack():
-        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE_ACK, 0, 1, "KEEP_ALIVE_ACK")  # New method for ACK
+        return DataTransferProtocolAdo.build_frame(DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE_ACK, 0, 1, "KEEP_ALIVE_ACK")  
 
     @staticmethod
     def build_file_metadata(file_name, file_size):
