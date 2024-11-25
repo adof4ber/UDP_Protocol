@@ -1,6 +1,3 @@
--- Lua script to recognize the DataTransferProtocolAdo protocol (DTPA) with ports 1070 and 1069
--- Ensure this script is added to Wireshark's plugins directory
-
 local dtpa_proto = Proto("DTPA", "Data Transfer Protocol Ado")
 
 -- Define fields in the protocol header
@@ -34,7 +31,7 @@ function dtpa_proto.dissector(buffer, pinfo, tree)
     pinfo.cols.protocol = "DTPA"
 
     if buffer:len() < 8 then
-        return  -- Packet too short for header
+        return  
     end
 
     local subtree = tree:add(dtpa_proto, buffer(), "DTPA Protocol Data")
