@@ -7,8 +7,6 @@ def close_handshake(udp_connection, target_ip, target_port, connection_active):
     )
     udp_connection.send(close_init_frame, (target_ip, target_port))
     print("Sent CLOSE_INIT")
-
-    # Tu spustíme sekvenciu na uzatvorenie spojenia
     handle_close_sequence(udp_connection, target_ip, target_port, connection_active)
 
 def send_close_ack(udp_connection, sender_address):
@@ -42,7 +40,7 @@ def handle_close_sequence(udp_connection, target_ip, target_port, connection_act
                 print("Received CLOSE_ACK. Sending CLOSE_FINAL.")
                 send_close_final(udp_connection, target_ip, target_port)
                 print("Closing connection in response to CLOSE_ACK.")
-                time.sleep(2)  
+                time.sleep(2)
                 connection_active[0] = False
             elif msg_type == DataTransferProtocolAdo.MSG_TYPE_CLOSE_FINAL:
                 print("Received CLOSE_FINAL. Closing connection.")

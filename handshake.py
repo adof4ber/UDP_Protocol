@@ -11,8 +11,8 @@ def handshake(connection, target_ip, target_port, my_protocol_number, their_prot
     
     try:
         start_time = time.time()
-        while time.time() - start_time < 1:  # Čakanie na KEEP ALIVE ACK max 3 sekundy
-            response = connection.receive()  # Bez timeout parametra
+        while time.time() - start_time < 3:  
+            response = connection.receive()  
             if response:
                 msg_type, _, _, _ = DataTransferProtocolAdo.parse_frame(response[0]) if response[0] else (None, None, None, None)
                 if msg_type == DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE_ACK:

@@ -9,13 +9,15 @@ class FileTransfer:
         self.target_ip = target_ip
         self.target_port = target_port
         self.fragment_size = fragment_size
-        self.save_directory = save_directory  
+        self.save_directory = save_directory
         self.window_size = window_size
         self.timeout = timeout
         self.file_name = None
         self.lock = Lock()
         self.sequence_number = 0
         self.sent_frames = {}
+        self.received_fragments = {}
+        self.received_count = 0
 
         self._ensure_save_directory()
 
@@ -40,7 +42,7 @@ class FileTransfer:
         self.file_name = os.path.basename(file_path)
         file_size = os.path.getsize(file_path)
         self.sequence_number = 0
-        self.sent_frames = {} 
+        self.sent_frames = {}
         print(f"Sending file '{self.file_name}' of size {file_size} bytes")
 
         try:
@@ -93,36 +95,20 @@ class FileTransfer:
         while time.time() - start_time < self.timeout:
             with self.lock:
                 try:
-                    frame, sender_address = self.connection.receive()  
+                    frame, sender_address = self.connection.receive()
                     if frame:
-                        msg_type, fragment_id, total_fragments, data = DataTransferProtocolAdo.parse_frame(frame)
-                        
-                        if msg_type == DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE:
-                            ack_frame = DataTransferProtocolAdo.build_keep_alive_ack()
-                            self.connection.send(ack_frame, sender_address)
-                            print("Sent KEEP ALIVE ACK")
-                            continue
-                        
+                        msg_type, fragment_id, _, _ = DataTransferProtocolAdo.parse_frame(frame)
+
                         if msg_type == DataTransferProtocolAdo.MSG_TYPE_ACK:
                             if fragment_id in self.sent_frames:
                                 del self.sent_frames[fragment_id]
                                 print(f"Received ACK for fragment {fragment_id + 1}/{total_fragments}")
-                        
-                        elif msg_type == DataTransferProtocolAdo.MSG_TYPE_NACK:
-                            print(f"Received NACK for fragment {fragment_id + 1}/{total_fragments}, resending...")
-                            self._send_file_data(self.sent_frames[fragment_id], fragment_id, total_fragments)
 
-                        if not self.sent_frames:  
+                        if not self.sent_frames:
                             break
 
                 except Exception as e:
                     print(f"Error while waiting for ACK: {e}")
-
-        for fragment_id in list(self.sent_frames.keys()):
-            if time.time() - start_time > self.timeout:
-                print(f"Timeout for fragment {fragment_id + 1}, retransmitting...")
-                self.connection.send(self.sent_frames[fragment_id], (self.target_ip, self.target_port))
-
 
     def save_received_file(self, file_data):
         if not self.save_directory:
@@ -137,7 +123,6 @@ class FileTransfer:
 
         file_path = os.path.join(self.save_directory, self.file_name)
 
-        # Kontrola existencie súboru a pridanie indexu
         base_name, extension = os.path.splitext(file_path)
         index = 1
         while os.path.exists(file_path):
@@ -151,7 +136,6 @@ class FileTransfer:
         except Exception as e:
             print(f"Error saving file: {e}")
 
-
     def receive_file(self):
         file_data = b''
         self.file_name = None
@@ -159,24 +143,27 @@ class FileTransfer:
         total_fragments = None
 
         while True:
-            frame, sender_address = self.connection.receive()  
+            frame, sender_address = self.connection.receive()
 
             if frame:
                 msg_type, fragment_id, total_fragments, data = DataTransferProtocolAdo.parse_frame(frame)
 
                 if msg_type == DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE:
-                    ack_frame = DataTransferProtocolAdo.build_keep_alive_ack()
-                    self.connection.send(ack_frame, sender_address)  
-                    continue  
+                    self._send_keep_alive_ack(sender_address)
 
                 if msg_type == DataTransferProtocolAdo.MSG_TYPE_FILE_DATA:
                     if not self.file_name:
                         self.file_name = data.decode("utf-8") if isinstance(data, bytes) else data
                         print(f"Starting reception of file: {self.file_name}")
-                    
+
                     if fragment_id not in fragments:
-                        print(f"Received file fragment {fragment_id + 1}/{total_fragments}")
                         fragments[fragment_id] = data
+                        self.received_count += 1
+                        print(f"Received file fragment {fragment_id + 1}/{total_fragments}")
+
+                    if self.received_count == self.window_size:
+                        self._send_ack(fragment_id, sender_address)
+                        self.received_count = 0
 
                     if len(fragments) == total_fragments:
                         sorted_fragments = [fragments[i] for i in sorted(fragments.keys())]
@@ -185,16 +172,18 @@ class FileTransfer:
                         print("File received and saved successfully.")
                         break
 
-                elif msg_type == DataTransferProtocolAdo.MSG_TYPE_NACK:
-                    print(f"Received NACK for fragment {fragment_id + 1}/{total_fragments}, requesting retransmission...")
-                    self._send_file_data(data, fragment_id, total_fragments)
-
                 elif msg_type == DataTransferProtocolAdo.MSG_TYPE_END:
                     print("Received END signal, finalizing transfer.")
                     break
 
-                else:
-                    print(f"Unexpected message type: {msg_type}. Ignoring...")
-
         return file_data
 
+    def _send_ack(self, fragment_id, sender_address):
+        ack_frame = DataTransferProtocolAdo.build_ack(fragment_id)
+        self.connection.send(ack_frame, sender_address)
+        print(f"Sent ACK for fragment {fragment_id + 1}")
+
+    def _send_keep_alive_ack(self, sender_address):
+        ack_frame = DataTransferProtocolAdo.build_keep_alive_ack()
+        self.connection.send(ack_frame, sender_address)
+        print("Sent KEEP ALIVE ACK")
