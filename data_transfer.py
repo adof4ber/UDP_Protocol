@@ -14,25 +14,13 @@ class DataTransfer:
         self.transfer_active = True
         self.connection_active = [True]
 
-    def encrypt_message(self, message):
-        encrypted = []
-        for i in range(0, len(message) - 1, 2):
-            encrypted.append(message[i + 1] + message[i])
-
-        if len(message) % 2 != 0:
-            encrypted.append(message[-1])
-        
-        return " ".join(encrypted)
-
     def fragment_message(self, message):
         fragments = [message[i:i + self.fragment_size] for i in range(0, len(message), self.fragment_size)]
         return [(seq, fragment) for seq, fragment in enumerate(fragments)]
 
     def send_message(self, message):
         print(f"Starting to send message: {message}")
-        encrypted_message = self.encrypt_message(message)
-        print(f"Encrypted message: {encrypted_message}")
-        self._send_message(encrypted_message)
+        self._send_message(message)
 
     def _send_message(self, message):
         fragments = self.fragment_message(message)
@@ -65,8 +53,8 @@ class DataTransfer:
                             ack_received = True
                             print(f"Received ACK for fragment {fragment_id + 1}/{total_fragments}")
                             break
-                        elif msg_type == DataTransferProtocolAdo.MSG_TYPE_NACK:
-                            print(f"Received NACK for fragment. Resending...")
+                        elif msg_type == DataTransferProtocolAdo.MSG_TYPE_NACK and fragment_id == seq:
+                            print(f"Received NACK for fragment {seq + 1}. Resending...")
                             break
                     except Exception as e:
                         print(f"Error parsing frame: {e}")
@@ -115,12 +103,11 @@ class DataTransfer:
 
                     if len(received_fragments) == total_fragments:
                         message = ''.join(received_fragments[i] for i in range(total_fragments))
-                        parts = message.split(" ")
-                        encrypted_message = " ".join(parts[:-1]) if len(parts[-1]) == 1 else message
-                        pair_count = encrypted_message.count(" ") + 1
-                        print(f"Encrypted message received: {encrypted_message}")
-                        print(f"Number of received pairs: {pair_count}")
-                        return encrypted_message
+                        total_size = sum(len(received_fragments[i]) for i in range(total_fragments))
+                        print(f"Complete message received: {message}")
+                        print(f"Total size of received message: {total_size} bytes")
+                        print(f"Total fragments received: {total_fragments}")
+                        return message
 
                 elif msg_type == DataTransferProtocolAdo.MSG_TYPE_END:
                     print("Received END signal. Ready for next message.")
@@ -132,11 +119,14 @@ class DataTransfer:
                     self.connection.send(ack_frame, sender_address)
                     self.connection_active[0] = False
                     self.transfer_active = False
-                    handle_close_sequence(self.connection, self.target_port, self.connection_active, self.connection_active)
+                    handle_close_sequence(self.connection, self.target_port, self.connection_active)
                     return None
 
             except Exception as e:
                 print(f"Error parsing frame: {e}")
-                nack_frame = DataTransferProtocolAdo.build_nack(0)
-                self.connection.send(nack_frame, sender_address)
-                print(f"Sent NACK")
+                if 'fragment_id' in locals():
+                    nack_frame = DataTransferProtocolAdo.build_nack(fragment_id)
+                    self.connection.send(nack_frame, sender_address)
+                    print(f"Sent NACK for fragment {fragment_id + 1}/{total_fragments}")
+                else:
+                    print("Cannot send NACK: fragment_id is not available.")
