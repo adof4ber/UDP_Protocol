@@ -3,7 +3,7 @@ import threading
 from protocol import DataTransferProtocolAdo
 
 class DataTransfer:
-    def __init__(self, connection, target_ip, target_port, fragment_size, timeout=0.5, ack_timeout=0.5):
+    def __init__(self, connection, target_ip, target_port, fragment_size, timeout=0.1, ack_timeout=0.1):
         self.connection = connection
         self.target_ip = target_ip
         self.target_port = target_port
