@@ -1,7 +1,6 @@
 import time
 import threading
 from protocol import DataTransferProtocolAdo
-from handshake_close import handle_close_sequence
 
 class DataTransfer:
     def __init__(self, connection, target_ip, target_port, fragment_size, timeout=0.5, ack_timeout=0.5):
@@ -114,19 +113,24 @@ class DataTransfer:
                     return None
 
                 elif msg_type == DataTransferProtocolAdo.MSG_TYPE_CLOSE_INIT:
-                    print("Received CLOSE_INIT. Sending CLOSE_ACK and closing connection.")
-                    ack_frame = DataTransferProtocolAdo.build_close_ack()
-                    self.connection.send(ack_frame, sender_address)
+                    print("Received CLOSE_INIT. Closing connection immediately.")
+                    close_final_frame = DataTransferProtocolAdo.build_frame(
+                        DataTransferProtocolAdo.MSG_TYPE_CLOSE_FINAL, 0, 1, "CLOSE_FINAL"
+                    )
+                    self.connection.send(close_final_frame, sender_address)
+                    print("Sent CLOSE_FINAL and closed connection.")
                     self.connection_active[0] = False
                     self.transfer_active = False
-                    handle_close_sequence(self.connection, self.target_port, self.connection_active)
+                    return None
+
+                elif msg_type == DataTransferProtocolAdo.MSG_TYPE_CLOSE_FINAL:
+                    print("Received CLOSE_FINAL. Connection closed.")
+                    self.connection_active[0] = False
                     return None
 
             except Exception as e:
                 print(f"Error parsing frame: {e}")
-                if 'fragment_id' in locals():
-                    nack_frame = DataTransferProtocolAdo.build_nack(fragment_id)
-                    self.connection.send(nack_frame, sender_address)
-                    print(f"Sent NACK for fragment {fragment_id + 1}/{total_fragments}")
-                else:
-                    print("Cannot send NACK: fragment_id is not available.")
+                nack_frame = DataTransferProtocolAdo.build_nack()
+                self.connection.send(nack_frame, sender_address)
+                print("Sent NACK")
+
