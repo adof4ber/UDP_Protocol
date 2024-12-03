@@ -44,7 +44,6 @@ class FileTransfer:
         self.sequence_number = 0
         self.sent_frames = {}
 
-        # Odoslanie metadát
         metadata_frame = DataTransferProtocolAdo.build_file_metadata(self.file_name, file_size)
         self.connection.send(metadata_frame, (self.target_ip, self.target_port))
         print(f"Sent file metadata: {self.file_name}, {file_size} bytes")
@@ -92,7 +91,6 @@ class FileTransfer:
 
         self.sent_frames[fragment_id] = frame
         self.connection.send(frame, (self.target_ip, self.target_port))
-        print(f"Sent fragment {fragment_id + 1}/{total_fragments}")
 
     def _wait_for_ack(self, total_fragments):
         start_time = time.time()
@@ -164,7 +162,6 @@ class FileTransfer:
                     if fragment_id not in fragments:
                         fragments[fragment_id] = data
                         self.received_count += 1
-                        print(f"Received file fragment {fragment_id + 1}/{total_fragments}")
 
                     if self.received_count == self.window_size:
                         self._send_ack(fragment_id, sender_address)
