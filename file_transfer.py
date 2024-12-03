@@ -43,7 +43,11 @@ class FileTransfer:
         file_size = os.path.getsize(file_path)
         self.sequence_number = 0
         self.sent_frames = {}
-        print(f"Sending file '{self.file_name}' of size {file_size} bytes")
+
+        # Odoslanie metadát
+        metadata_frame = DataTransferProtocolAdo.build_file_metadata(self.file_name, file_size)
+        self.connection.send(metadata_frame, (self.target_ip, self.target_port))
+        print(f"Sent file metadata: {self.file_name}, {file_size} bytes")
 
         try:
             with open(file_path, "rb") as file:
@@ -68,6 +72,7 @@ class FileTransfer:
             print("File transfer completed.")
         except Exception as e:
             print(f"Error during file transfer: {e}")
+
 
     def _send_end_signal(self):
         frame = DataTransferProtocolAdo.build_end()
@@ -138,9 +143,9 @@ class FileTransfer:
 
     def receive_file(self):
         file_data = b''
-        self.file_name = None
         fragments = {}
         total_fragments = None
+        self.file_name = None
 
         while True:
             frame, sender_address = self.connection.receive()
@@ -151,11 +156,11 @@ class FileTransfer:
                 if msg_type == DataTransferProtocolAdo.MSG_TYPE_KEEP_ALIVE:
                     self._send_keep_alive_ack(sender_address)
 
-                if msg_type == DataTransferProtocolAdo.MSG_TYPE_FILE_DATA:
-                    if not self.file_name:
-                        self.file_name = data.decode("utf-8") if isinstance(data, bytes) else data
-                        print(f"Starting reception of file: {self.file_name}")
+                elif msg_type == DataTransferProtocolAdo.MSG_TYPE_FILE_METADATA:
+                    self.file_name, file_size = DataTransferProtocolAdo.parse_file_metadata(frame)
+                    print(f"Received file metadata: {self.file_name}, size: {file_size} bytes")
 
+                elif msg_type == DataTransferProtocolAdo.MSG_TYPE_FILE_DATA:
                     if fragment_id not in fragments:
                         fragments[fragment_id] = data
                         self.received_count += 1
